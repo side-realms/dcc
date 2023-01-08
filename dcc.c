@@ -16,6 +16,7 @@ typedef enum{ // トークンの種類を列挙型で定義する
     TK_EOF, // 終端文字
 }TokenKind;
 
+typedef struct Token Token;
 
 struct Token{ // Token 型
     TokenKind kind; // トークンの種類(TokenKind)
@@ -24,7 +25,7 @@ struct Token{ // Token 型
     char *str; // 文字トークンのときの文字
 };
 
-typedef struct Token Token;
+
     // 構造体を変数するときは 
     // struct Token Token;
     // とする必要があるが，めんどくさいので 
@@ -32,14 +33,22 @@ typedef struct Token Token;
     // とすることで Token ~~~ みたいな変数ができる．
 
 Token *token;
+char *user_input;
 
 // 参考：https://ez-net.jp/article/E3/CQ4fxR9H/br4mR3gSb_sE/
 // vsprintf は sprintf と似ていて，
 // vsprintf(ストリームバッファ，引数，va_list 構造体) となる
-void error(char *fmt, ...) { // 可変個の引数を持つ
+// loc は現在見ているバイト，user_input は先頭バイトを指している
+void error_at(char *loc, char *fmt, ...) { // 可変個の引数を持つ
     va_list ap; // 可変長引数を操作するための構造体
     va_start(ap, fmt); // 可変長を操作するための必要なマクロ(?)
-    vsprintf(stderr, fmt, ap);
+    
+    int pos = loc - user_input;
+    fprintf(stderr, "%s\n", user_input);
+    fprintf(stderr, "%*s", pos, " ");
+    fprintf(stderr, "^ ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
     va_end(ap);
     exit(1);
 }
@@ -62,9 +71,9 @@ bool consume(char op){
 
 // expect
     // 次が期待した文字が確かめ，エラーを返す
-void expext(char op){
+void expect(char op){
     if(token->kind != TK_RESERVED || token -> str[0] != op){
-        error("not '%c'", op);
+        error_at(token->str, "not '%c'", op);
     }
     token = token->next;
 }
@@ -73,7 +82,7 @@ void expext(char op){
     // 次のトークンが数字であるか判定する
 int expect_number(){
     if(token->kind != TK_NUM){
-        error("token is not number");
+        error_at(token->str, "token is not number");
     }
     int val = token->val;
     token = token->next;
@@ -93,7 +102,8 @@ Token *new_token(TokenKind kind, Token *cur, char *str){
 // tokenize
     // トークナイズする
 
-Token *tokenize(char *p){
+Token *tokenize(){
+    char *p = user_input;
     Token head;
     head.next = NULL;
     Token *cur = &head;
@@ -114,7 +124,7 @@ Token *tokenize(char *p){
             continue;
         }
 
-        error('cannot tokenize');
+        error_at(p, "cannot tokenize");
     }
     new_token(TK_EOF, cur, p);
     return head.next; // 連続の先頭を返す
@@ -122,11 +132,12 @@ Token *tokenize(char *p){
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    error("引数の個数が正しくありません");
+    fprintf(stderr, "引数の個数が正しくありません");
     return 1;
   }
 
-  token = tokenize(argv[1]);
+  user_input = argv[1];
+  token = tokenize();
 
   printf(".intel_syntax noprefix\n");
   printf(".globl main\n");

@@ -23,6 +23,7 @@ struct Token{ // Token 型
     Token *next; // 次のトークンへのポインタ
     int val; // 数値トークンのときの値
     char *str; // 文字トークンのときの文字
+    int len;
 };
 
 typedef enum{
@@ -54,6 +55,7 @@ char *user_input;
 Node *expr();
 Node *mul();
 Node *primary();
+Node *unary();
 
 // 参考：https://ez-net.jp/article/E3/CQ4fxR9H/br4mR3gSb_sE/
 // vsprintf は sprintf と似ていて，
@@ -81,8 +83,8 @@ bool at_eof(){
 
 // consume
     // 次が期待した文字化確かめ，真偽を返す
-bool consume(char op){
-    if(token->kind != TK_RESERVED || token->str[0] != op){
+bool consume(char *op){
+    if(token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len)){
         return false;
     }
     token = token->next;
@@ -91,8 +93,8 @@ bool consume(char op){
 
 // expect
     // 次が期待した文字が確かめ，エラーを返す
-void expect(char op){
-    if(token->kind != TK_RESERVED || token -> str[0] != op){
+void expect(char *op){
+    if(token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len)){
         error_at(token->str, "not '%c'", op);
     }
     token = token->next;
@@ -154,13 +156,13 @@ Node *expr(){
 }
 
 Node *mul(){
-    Node *node = primary();
+    Node *node = unary();
 
     for(;;){
         if(consume('*')){
-            node = new_binary(ND_MUL, node, primary());
+            node = new_binary(ND_MUL, node, unary());
         }else if(consume('/')){
-            node = new_binary(ND_DIV, node, primary());
+            node = new_binary(ND_DIV, node, unary());
         }else{
             return node;
         }
@@ -174,6 +176,14 @@ Node *primary(){
         return node;
     }
     return new_node_num(expect_number());
+}
+
+Node *unary(){
+    if(consume('+'))
+        return unary();
+    if (consume('-'))
+        return new_binary(ND_SUB, new_node_num(0), unary());
+    return primary();
 }
 
 

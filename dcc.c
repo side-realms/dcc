@@ -39,7 +39,7 @@ struct Node{
     NodeKind kind;
     Node *lhs;
     Node *rhs;
-    int val
+    int val;
 };
 
 
@@ -51,6 +51,9 @@ struct Node{
 
 Token *token;
 char *user_input;
+Node *expr();
+Node *mul();
+Node *primary();
 
 // 参考：https://ez-net.jp/article/E3/CQ4fxR9H/br4mR3gSb_sE/
 // vsprintf は sprintf と似ていて，
@@ -116,9 +119,14 @@ Token *new_token(TokenKind kind, Token *cur, char *str){
     return tok;
 }
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs){
+Node *new_node(NodeKind kind){
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
+    return node;
+}
+
+Node *new_binary(NodeKind kind, Node *lhs, Node *rhs){
+    Node *node = new_node(kind);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
@@ -131,6 +139,34 @@ Node *new_node_num(int val){
     return node;
 }
 
+Node *expr(){
+    Node *node = mul();
+
+    for(;;){
+        if(consume('+')){
+            node = new_binary(ND_ADD, node, mul());
+        }else if(consume('-')){
+            node = new_binary(ND_SUB, node, mul());
+        }else{
+            return node;
+        }
+    }
+}
+
+Node *mul(){
+    Node *node = primary();
+
+    for(;;){
+        if(consume('*')){
+            node = new_binary(ND_MUL, node, primary());
+        }else if(consume('/')){
+            node = new_binary(ND_DIV, node, primary());
+        }else{
+            return node;
+        }
+    }
+}
+
 Node *primary(){
     if(consume('(')){
         Node *node = expr();
@@ -140,33 +176,6 @@ Node *primary(){
     return new_node_num(expect_number());
 }
 
-Node *mul(){
-    Node *node = primary();
-
-    for(;;){
-        if(consume('*')){
-            node = new_node(ND_MUL, node, primary());
-        }else if(condume('/')){
-            node = new_node(ND_DIV, node, primary());
-        }else{
-            return node;
-        }
-    }
-}
-
-Node *expr(){
-    Node *node = mul();
-
-    for(;;){
-        if(consume('+')){
-            node = new_node(ND_ADD, node, mul());
-        }else if(consume('-')){
-            node = new_node(ND_SUB, node, mul());
-        }else{
-            return node;
-        }
-    }
-}
 
 void gen(Node *node){
     if(node->kind == ND_NUM){
@@ -177,6 +186,9 @@ void gen(Node *node){
     gen(node->lhs);
     gen(node->rhs);
 
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+
     switch(node->kind){
         case ND_ADD:
             printf("  add rax, rdi\n");
@@ -185,7 +197,7 @@ void gen(Node *node){
             printf("  sub rax, rdi\n");
             break;
         case ND_MUL:
-            printf("  mul rax, rdi\n");
+            printf("  imul rax, rdi\n");
             break;
         case ND_DIV:
             printf("  cqo\n");
@@ -209,7 +221,7 @@ Token *tokenize(){
             p++;
             continue;
         }
-        if(*p == '+' || *p == '-'){
+        if(strchr("+-*/()", *p)){
             cur = new_token(TK_RESERVED, cur, p);
             p++;
             continue;
@@ -233,24 +245,17 @@ int main(int argc, char **argv) {
   }
 
   user_input = argv[1];
-  token = tokenize();
+  //fprintf(stdout, "user input is %s\n",user_input);
+  token = tokenize(user_input);
+  Node *node = expr();
 
   printf(".intel_syntax noprefix\n");
   printf(".globl main\n");
   printf("main:\n");
 
-  printf("  mov rax, %d\n", expect_number()); 
+  gen(node);
 
-  while (!at_eof()) {
-    if (consume('+')) {
-      printf("  add rax, %d\n", expect_number());
-      continue;
-    }
-
-    expect('-');
-    printf("  sub rax, %d\n", expect_number());
-  }
-
+  printf("  pop rax\n");
   printf("  ret\n");
   return 0;
 }

@@ -54,3 +54,14 @@ struct Node{
 
 Token *token;
 char *user_input;
+
+Node *equality();
+Node *relational();
+Node *add();
+Node *expr();
+Node *mul();
+Node *primary();
+Node *unary();
+
+Token *tokenize();
+void gen(Node *node);

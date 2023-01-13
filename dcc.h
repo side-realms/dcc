@@ -21,6 +21,7 @@ typedef struct Node Node;
 
 typedef enum{ // トークンの種類を列挙型で定義する
     TK_RESERVED, // 文字
+    TK_IDENT,
     TK_NUM, // 数字
     TK_EOF, // 終端文字
 }TokenKind;
@@ -43,6 +44,8 @@ typedef enum{
     ND_NE,
     ND_LT,
     ND_LE,
+    ND_ASSIGN,
+    ND_LVAR,
 }NodeKind;
 
 struct Node{
@@ -50,6 +53,7 @@ struct Node{
     Node *lhs;
     Node *rhs;
     int val;
+    int offset;
 };
 
 Token *token;
